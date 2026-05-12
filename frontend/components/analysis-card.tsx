@@ -35,7 +35,7 @@ interface AnalysisResult {
   riskFactors: string[]
 }
 
-const API_BASE_URL = "https://sms-threat-detector.onrender.com/"
+const API_BASE_URL = "https://sms-threat-detector.onrender.com"
 
 // Determine threat level based on prediction
 const getThreatLevelFromPrediction = (prediction: string): ThreatLevel => {
