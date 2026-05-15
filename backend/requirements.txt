@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+scikit-learn
+nltk
+pandas
+numpy
+python-multipart
+transformers
+torch
+accelerate
+joblib
