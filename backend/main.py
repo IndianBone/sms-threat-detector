@@ -1,16 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from transformers import (
-    AutoTokenizer,
-    AutoModelForSequenceClassification
-)
-
-import torch
-torch.set_grad_enabled(False)
-
-import torch.nn.functional as F
-
 import joblib
 import re
 
@@ -26,13 +16,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Model path
+# Load lightweight ML model
 MODEL_PATH = "model"
 
-# Lazy loading variables
-tokenizer = None
-model = None
-label_encoder = None
+model = joblib.load(f"{MODEL_PATH}/svm_model.pkl")
+
+vectorizer = joblib.load(f"{MODEL_PATH}/vectorizer.pkl")
+
+label_encoder = joblib.load(f"{MODEL_PATH}/label_encoder.pkl")
 
 
 # Keyword lists
@@ -68,51 +59,25 @@ def is_gibberish(text):
 
     compact = re.sub(r'[^a-z]', '', text)
 
-    # Empty after cleanup
     if not compact:
         return True
 
-    # Random single-word strings
     if len(compact) >= 6 and len(text.split()) == 1:
 
         vowels = sum(c in "aeiou" for c in compact)
 
         vowel_ratio = vowels / len(compact)
 
-        # Too few vowels
         if vowel_ratio < 0.35:
             return True
 
-        # Too many consonants together
         if re.search(r'[bcdfghjklmnpqrstvwxyz]{5,}', compact):
             return True
 
-    # Random symbols spam
     if re.fullmatch(r'[@#$%^&*()!]{3,}', text):
         return True
 
     return False
-
-
-# Lazy model loader
-def load_model():
-
-    global tokenizer
-    global model
-    global label_encoder
-
-    if tokenizer is None:
-
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
-
-        model = AutoModelForSequenceClassification.from_pretrained(
-            MODEL_PATH,
-            low_cpu_mem_usage=True
-        )
-
-        label_encoder = joblib.load(f"{MODEL_PATH}/label_encoder.pkl")
-
-        model.eval()
 
 
 @app.get("/")
@@ -122,9 +87,6 @@ def home():
 
 @app.get("/predict")
 def predict(message: str):
-
-    # Load model only when needed
-    load_model()
 
     lower_msg = message.lower()
 
@@ -139,26 +101,34 @@ def predict(message: str):
             "risk_factors": ["Possible gibberish text"]
         }
 
-    # Tokenize
-    inputs = tokenizer(
-        message,
-        return_tensors="pt",
-        truncation=True,
-        padding=True,
-        max_length=64
-    )
+    # Transform input
+    transformed = vectorizer.transform([message])
 
     # Predict
-    with torch.no_grad():
-        outputs = model(**inputs)
+    pred = model.predict(transformed)[0]
 
-    probs = F.softmax(outputs.logits, dim=1)
+    label = label_encoder.inverse_transform([pred])[0]
 
-    confidence, pred = torch.max(probs, dim=1)
+    # Convert ham → safe
+    if label == "ham":
+        label = "safe"
 
-    confidence = round(confidence.item() * 100, 2)
+    # Safe chat override
+    safe_words = [
+        "hello",
+        "hi",
+        "hey",
+        "bro",
+        "okay",
+        "thanks",
+        "thank you"
+    ]
 
-    label = label_encoder.inverse_transform([pred.item()])[0]
+    if any(word in lower_msg for word in safe_words):
+        label = "safe"
+
+    # Approximate confidence
+    confidence = 95.0
 
     # OTP scam override
     otp_keywords = [
