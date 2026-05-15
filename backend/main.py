@@ -24,16 +24,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load model
+# Model path
 MODEL_PATH = "model"
 
-tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
-
-model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
-
-label_encoder = joblib.load(f"{MODEL_PATH}/label_encoder.pkl")
-
-model.eval()
+# Lazy loading variables
+tokenizer = None
+model = None
+label_encoder = None
 
 
 # Keyword lists
@@ -95,6 +92,24 @@ def is_gibberish(text):
     return False
 
 
+# Lazy model loader
+def load_model():
+
+    global tokenizer
+    global model
+    global label_encoder
+
+    if tokenizer is None:
+
+        tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
+
+        model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
+
+        label_encoder = joblib.load(f"{MODEL_PATH}/label_encoder.pkl")
+
+        model.eval()
+
+
 @app.get("/")
 def home():
     return {"message": "AI SMS Threat Detection API Running"}
@@ -102,6 +117,9 @@ def home():
 
 @app.get("/predict")
 def predict(message: str):
+
+    # Load model only when needed
+    load_model()
 
     lower_msg = message.lower()
 
