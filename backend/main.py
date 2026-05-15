@@ -2,8 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from transformers import (
-    DistilBertTokenizerFast,
-    DistilBertForSequenceClassification
+    AutoTokenizer,
+    AutoModelForSequenceClassification
 )
 
 import torch
@@ -27,9 +27,9 @@ app.add_middleware(
 # Load model
 MODEL_PATH = "model"
 
-tokenizer = DistilBertTokenizerFast.from_pretrained(MODEL_PATH)
+tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
 
-model = DistilBertForSequenceClassification.from_pretrained(MODEL_PATH)
+model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
 
 label_encoder = joblib.load(f"{MODEL_PATH}/label_encoder.pkl")
 
@@ -61,7 +61,7 @@ spam_keywords = [
     "discount"
 ]
 
-# gibberish detector
+
 # Strong gibberish detector
 def is_gibberish(text):
 
@@ -93,6 +93,7 @@ def is_gibberish(text):
         return True
 
     return False
+
 
 @app.get("/")
 def home():
