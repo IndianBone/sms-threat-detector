@@ -7,6 +7,8 @@ from transformers import (
 )
 
 import torch
+torch.set_grad_enabled(False)
+
 import torch.nn.functional as F
 
 import joblib
@@ -103,7 +105,10 @@ def load_model():
 
         tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
 
-        model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
+        model = AutoModelForSequenceClassification.from_pretrained(
+            MODEL_PATH,
+            low_cpu_mem_usage=True
+        )
 
         label_encoder = joblib.load(f"{MODEL_PATH}/label_encoder.pkl")
 
@@ -140,7 +145,7 @@ def predict(message: str):
         return_tensors="pt",
         truncation=True,
         padding=True,
-        max_length=128
+        max_length=64
     )
 
     # Predict
